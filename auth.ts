@@ -30,9 +30,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!idToken) return null;
 
         try {
-          const { getAdminAuth } = await import('@/lib/firebase/admin');
+          const { verifyFirebaseIdToken } = await import('@/lib/firebase/verify-id-token');
           const { getUserProfile, upsertUserProfile } = await import('@/lib/firebase/users');
-          const decoded = await getAdminAuth().verifyIdToken(idToken);
+          const decoded = await verifyFirebaseIdToken(idToken);
 
           let profile = null;
           try {

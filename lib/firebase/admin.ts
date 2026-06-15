@@ -1,9 +1,7 @@
 import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
-import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 
 let app: App;
-let adminAuth: Auth;
 let db: Firestore;
 
 function parsePrivateKey(raw: string | undefined): string | undefined {
@@ -56,11 +54,6 @@ function getAdminApp(): App {
   throw new Error(
     'Firebase Admin is not configured. Set FIREBASE_SERVICE_ACCOUNT_KEY or FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.'
   );
-}
-
-export function getAdminAuth(): Auth {
-  if (!adminAuth) adminAuth = getAuth(getAdminApp());
-  return adminAuth;
 }
 
 export function getAdminDb(): Firestore {
