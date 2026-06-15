@@ -1,8 +1,6 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import type { ReaderTypeId } from '@/lib/types';
-import { getAdminAuth } from '@/lib/firebase/admin';
-import { getUserProfile, upsertUserProfile } from '@/lib/firebase/users';
 
 declare module 'next-auth' {
   interface Session {
@@ -17,6 +15,7 @@ declare module 'next-auth' {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: process.env.AUTH_SECRET,
   providers: [
     Credentials({
       id: 'firebase',
@@ -31,6 +30,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!idToken) return null;
 
         try {
+          const { getAdminAuth } = await import('@/lib/firebase/admin');
+          const { getUserProfile, upsertUserProfile } = await import('@/lib/firebase/users');
           const decoded = await getAdminAuth().verifyIdToken(idToken);
           const profile = await getUserProfile(decoded.uid);
           const displayName =
@@ -51,7 +52,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: decoded.email ?? null,
             readerTypeId: profile?.readerTypeId,
           };
-        } catch {
+        } catch (err) {
+          console.error('[auth] Firebase authorize failed:', err);
           return null;
         }
       },

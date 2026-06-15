@@ -3,6 +3,11 @@ import path from 'path';
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname),
+  // Transpile Auth.js so jose ESM imports bundle correctly on Vercel serverless.
+  transpilePackages: ['next-auth', '@auth/core', 'jose'],
+  outputFileTracingIncludes: {
+    '/api/auth/**/*': ['./node_modules/jose/**/*'],
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'covers.openlibrary.org' },
