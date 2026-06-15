@@ -147,7 +147,7 @@ export default function ReaderQuest() {
             </div>
           )}
 
-          {loading && <div className="quest-loading">Loading quest…</div>}
+          {loading && !quest && <div className="quest-loading">Loading quest…</div>}
 
           {!loading && quest && quest.books.length > 0 && (
             <ul className="quest-book-list">

@@ -5,9 +5,17 @@ import type { Book } from '@/lib/types';
 import { SEARCH_GENRES } from '@/lib/search-genres';
 import BookCard from '@/components/BookCard';
 
-export default function BookSearch() {
-  const [query, setQuery] = useState('');
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+interface BookSearchProps {
+  initialQuery?: string;
+  initialGenres?: string[];
+}
+
+export default function BookSearch({
+  initialQuery = '',
+  initialGenres = [],
+}: BookSearchProps) {
+  const [query, setQuery] = useState(initialQuery);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>(initialGenres);
   const [results, setResults] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);

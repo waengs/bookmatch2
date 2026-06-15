@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import type { Book } from '@/lib/types';
 import { openBookExternalUrl } from '@/lib/book-link';
-import { useJourney } from '@/context/JourneyContext';
 import SaveBookButton from '@/components/SaveBookButton';
 import AddToQuestButton from '@/components/AddToQuestButton';
 
@@ -53,7 +52,6 @@ function BookCover({
 }
 
 export default function FeaturedAdventure({ books, totalCount, loading, onViewAll }: FeaturedAdventureProps) {
-  const { startBook } = useJourney();
   const picksRef = useRef<HTMLDivElement>(null);
   const [pickSlots, setPickSlots] = useState(3);
 
@@ -145,7 +143,7 @@ export default function FeaturedAdventure({ books, totalCount, loading, onViewAl
               <button
                 type="button"
                 className="cta-btn featured-adventure-start"
-                onClick={() => startBook()}
+                onClick={() => { void openBookExternalUrl(book); }}
               >
                 Start Reading
               </button>

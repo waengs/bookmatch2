@@ -23,6 +23,7 @@ export default function HomePage() {
   const { readerType, readerTypeId, books, booksLoading, openQuiz, hydrated } = useBookMatch();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeNav, setActiveNav] = useState('home');
+  const [exploreSearch, setExploreSearch] = useState<{ q?: string; genres?: string[] }>({});
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -76,7 +77,25 @@ export default function HomePage() {
     }
   };
 
-  const browseBooks = () => handleNav('explore');
+  const browseBooks = () => {
+    setExploreSearch({});
+    handleNav('explore');
+  };
+
+  const findFantasyBooks = () => {
+    if (!readerTypeId) {
+      openQuiz();
+      return;
+    }
+    setExploreSearch({ genres: ['fantasy'] });
+    setActiveNav('explore');
+    if (window.innerWidth <= 820) setSidebarOpen(false);
+    window.setTimeout(() => {
+      document.getElementById('section-search')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  };
+
+  const showBooksLoading = booksLoading && books.length === 0;
 
   return (
     <>
@@ -115,7 +134,7 @@ export default function HomePage() {
               <FeaturedAdventure
                 books={books}
                 totalCount={books.length}
-                loading={booksLoading && !!readerType}
+                loading={showBooksLoading && !!readerType}
                 onViewAll={browseBooks}
               />
             </div>
@@ -135,7 +154,7 @@ export default function HomePage() {
             {readerType && books.length > 1 && (
               <BookGrid
                 books={books.slice(1)}
-                loading={booksLoading}
+                loading={showBooksLoading}
                 title={matchesTitle}
                 hasReaderType={!!readerType}
                 onTakeQuiz={openQuiz}
@@ -147,11 +166,15 @@ export default function HomePage() {
 
         {activeNav === 'explore' && (
           <>
-            <BookSearch />
+            <BookSearch
+              key={`${exploreSearch.q ?? ''}-${exploreSearch.genres?.join(',') ?? ''}`}
+              initialQuery={exploreSearch.q ?? ''}
+              initialGenres={exploreSearch.genres ?? []}
+            />
             {readerType && (
               <BookGrid
                 books={books}
-                loading={booksLoading}
+                loading={showBooksLoading}
                 title={matchesTitle}
                 hasReaderType={!!readerType}
                 onTakeQuiz={openQuiz}
@@ -161,7 +184,7 @@ export default function HomePage() {
           </>
         )}
 
-        {activeNav === 'quests' && <QuestsPanel />}
+        {activeNav === 'quests' && <QuestsPanel onFindFantasyBook={findFantasyBooks} />}
         {activeNav === 'rewards' && <RewardsPanel />}
         {activeNav === 'me' && <MePanel />}
       </main>

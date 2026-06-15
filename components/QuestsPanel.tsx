@@ -5,8 +5,12 @@ import { useJourney } from '@/context/JourneyContext';
 import { WEEKLY_CHALLENGE, BADGES } from '@/lib/gamification';
 import ReaderQuest from '@/components/ReaderQuest';
 
-export default function QuestsPanel() {
-  const { readerType, openQuiz } = useBookMatch();
+interface QuestsPanelProps {
+  onFindFantasyBook?: () => void;
+}
+
+export default function QuestsPanel({ onFindFantasyBook }: QuestsPanelProps) {
+  const { readerType } = useBookMatch();
   const { journey } = useJourney();
   const challenge = WEEKLY_CHALLENGE;
   const hasFantasyBadge = journey.earnedBadges.includes(challenge.rewardBadge);
@@ -30,7 +34,11 @@ export default function QuestsPanel() {
         {hasFantasyBadge ? (
           <div className="challenge-done">Challenge complete! 🎉</div>
         ) : (
-          <button type="button" className="cta-btn cta-btn--secondary" onClick={() => openQuiz()}>
+          <button
+            type="button"
+            className="cta-btn cta-btn--secondary"
+            onClick={() => onFindFantasyBook?.()}
+          >
             {readerType ? 'Find a fantasy book →' : 'Discover your type first ✨'}
           </button>
         )}

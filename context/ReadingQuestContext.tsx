@@ -67,10 +67,11 @@ export function ReadingQuestProvider({ children }: { children: ReactNode }) {
   const [quest, setQuest] = useState<ReadingQuestData | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const isSignedIn = !!session?.user;
+  const userId = session?.user?.id;
+  const isSignedIn = !!userId;
 
   const refreshQuest = useCallback(async () => {
-    if (!session?.user) {
+    if (!userId) {
       setQuest(null);
       return;
     }
@@ -86,12 +87,12 @@ export function ReadingQuestProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [session?.user]);
+  }, [userId]);
 
   useEffect(() => {
     if (status === 'loading') return;
     refreshQuest();
-  }, [status, refreshQuest]);
+  }, [status, userId, refreshQuest]);
 
   const questKeys = useMemo(
     () => new Set(quest?.books.map((b) => b.docId) ?? []),
@@ -105,10 +106,10 @@ export function ReadingQuestProvider({ children }: { children: ReactNode }) {
   );
 
   const requireAuth = useCallback(() => {
-    if (session?.user) return true;
+    if (userId) return true;
     router.push(`/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`);
     return false;
-  }, [session?.user, router]);
+  }, [userId, router]);
 
   const postQuest = useCallback(async (payload: object): Promise<ReadingQuestData | null> => {
     const res = await fetch('/api/user/reading-quest', {
@@ -217,15 +218,15 @@ export function ReadingQuestProvider({ children }: { children: ReactNode }) {
 
   const removeBook = useCallback(
     async (book: Pick<Book, 'title' | 'author'>) => {
-      if (!session?.user) return;
+      if (!userId) return;
       await postQuest({ action: 'remove', book });
     },
-    [session?.user, postQuest]
+    [userId, postQuest]
   );
 
   const submitReview = useCallback(
     async (book: Book, rating: number, text: string): Promise<boolean> => {
-      if (!session?.user) return false;
+      if (!userId) return false;
       const docId = collectionDocId(book.title, book.author);
       const alreadyReviewed = quest?.books.some(
         (entry) => entry.docId === docId && isQuestBookReviewed(entry)
@@ -241,7 +242,7 @@ export function ReadingQuestProvider({ children }: { children: ReactNode }) {
       }
       return !!result;
     },
-    [session?.user, quest?.books, postQuest, onBookReviewed]
+    [userId, quest?.books, postQuest, onBookReviewed]
   );
 
   const booksCount = quest?.books.length ?? 0;

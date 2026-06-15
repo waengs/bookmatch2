@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -60,8 +61,12 @@ export function BookMatchProvider({ children }: { children: ReactNode }) {
   const [booksSource, setBooksSource] = useState<'live' | 'fallback' | null>(null);
   const [quizOpen, setQuizOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const fetchedForType = useRef<ReaderTypeId | null>(null);
 
-  const isSignedIn = !!session?.user;
+  const userId = session?.user?.id;
+  const sessionReaderTypeId = session?.user?.readerTypeId;
+
+  const isSignedIn = !!userId;
 
   const refreshBooks = useCallback(async (id: ReaderTypeId) => {
     setBooksLoading(true);
@@ -72,9 +77,10 @@ export function BookMatchProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setReaderTypeId = useCallback(async (id: ReaderTypeId) => {
-    if (!session?.user) return;
+    if (!userId) return;
 
     setReaderTypeIdState(id);
+    fetchedForType.current = id;
     await refreshBooks(id);
 
     await fetch('/api/user/reader-type', {
@@ -83,12 +89,13 @@ export function BookMatchProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ readerTypeId: id }),
     });
     await update({ readerTypeId: id });
-  }, [refreshBooks, session?.user, update]);
+  }, [refreshBooks, userId, update]);
 
   useEffect(() => {
     if (status === 'loading') return;
 
-    if (!session?.user) {
+    if (!userId) {
+      fetchedForType.current = null;
       setReaderTypeIdState(null);
       setBooks([]);
       setBooksSource(null);
@@ -96,35 +103,38 @@ export function BookMatchProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const sessionType = session.user.readerTypeId;
-    const resolved = isValidReaderTypeId(sessionType) ? sessionType : null;
+    const resolved = isValidReaderTypeId(sessionReaderTypeId) ? sessionReaderTypeId : null;
 
     setReaderTypeIdState(resolved);
 
     if (resolved) {
-      refreshBooks(resolved);
+      if (fetchedForType.current !== resolved) {
+        fetchedForType.current = resolved;
+        refreshBooks(resolved);
+      }
     } else {
+      fetchedForType.current = null;
       setBooks([]);
       setBooksSource(null);
     }
 
     setHydrated(true);
-  }, [status, session?.user, session?.user?.readerTypeId, refreshBooks]);
+  }, [status, userId, sessionReaderTypeId, refreshBooks]);
 
   useEffect(() => {
-    if (status !== 'loading' && !session?.user && quizOpen) {
+    if (status !== 'loading' && !userId && quizOpen) {
       setQuizOpen(false);
     }
-  }, [status, session?.user, quizOpen]);
+  }, [status, userId, quizOpen]);
 
   const openQuiz = useCallback(() => {
     if (status === 'loading') return;
-    if (!session?.user) {
+    if (!userId) {
       router.push(`/login?callbackUrl=${encodeURIComponent('/?quiz=1')}`);
       return;
     }
     setQuizOpen(true);
-  }, [session?.user, status, router]);
+  }, [userId, status, router]);
 
   const closeQuiz = useCallback(() => setQuizOpen(false), []);
 
