@@ -26,22 +26,13 @@ export default function HomePage() {
   const [activeNav, setActiveNav] = useState('home');
   const [exploreSearch, setExploreSearch] = useState<{ q?: string; genres?: string[] }>({});
 
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      const sidebar = document.getElementById('sidebar');
-      const menuBtn = document.getElementById('menu-btn');
-      if (
-        window.innerWidth <= 820 &&
-        sidebar?.classList.contains('open') &&
-        !sidebar.contains(e.target as Node) &&
-        e.target !== menuBtn
-      ) {
-        setSidebarOpen(false);
-      }
-    };
-    document.addEventListener('click', onClick);
-    return () => document.removeEventListener('click', onClick);
-  }, []);
+  const toggleSidebar = () => {
+    setSidebarOpen((open) => !open);
+  };
+
+  const closeSidebar = () => {
+    setSidebarOpen(false);
+  };
 
   // Open quiz after sign-in redirect (?quiz=1) or first visit for signed-in users
   useEffect(() => {
@@ -70,7 +61,7 @@ export default function HomePage() {
 
   const handleNav = (id: string, sectionId?: string) => {
     setActiveNav(id);
-    if (window.innerWidth <= 820) setSidebarOpen(false);
+    if (window.innerWidth <= 820) closeSidebar();
     if (sectionId) {
       window.setTimeout(() => {
         document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -90,7 +81,7 @@ export default function HomePage() {
     }
     setExploreSearch({ genres });
     setActiveNav('explore');
-    if (window.innerWidth <= 820) setSidebarOpen(false);
+    if (window.innerWidth <= 820) closeSidebar();
     window.setTimeout(() => {
       document.getElementById('section-search')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 80);
@@ -107,6 +98,15 @@ export default function HomePage() {
 
   return (
     <>
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          aria-label="Close menu"
+          onClick={closeSidebar}
+        />
+      )}
+
       <Sidebar open={sidebarOpen} activeNav={activeNav} onNavClick={handleNav} onStreakClick={scrollToDailyLog} />
 
       <main className="main-content main-content--mock">
@@ -115,8 +115,12 @@ export default function HomePage() {
             type="button"
             className="menu-btn"
             id="menu-btn"
-            aria-label="Toggle menu"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={sidebarOpen}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleSidebar();
+            }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

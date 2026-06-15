@@ -65,6 +65,8 @@ export function BookMatchProvider({ children }: { children: ReactNode }) {
 
   const userId = session?.user?.id;
   const sessionReaderTypeId = session?.user?.readerTypeId;
+  const sessionReaderTypeRef = useRef(sessionReaderTypeId);
+  sessionReaderTypeRef.current = sessionReaderTypeId;
 
   const isSignedIn = !!userId;
 
@@ -83,12 +85,14 @@ export function BookMatchProvider({ children }: { children: ReactNode }) {
     fetchedForType.current = id;
     await refreshBooks(id);
 
-    await fetch('/api/user/reader-type', {
+    const res = await fetch('/api/user/reader-type', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ readerTypeId: id }),
     });
-    await update({ readerTypeId: id });
+    if (res.ok) {
+      await update({ readerTypeId: id });
+    }
   }, [refreshBooks, userId, update]);
 
   useEffect(() => {
@@ -103,23 +107,65 @@ export function BookMatchProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const resolved = isValidReaderTypeId(sessionReaderTypeId) ? sessionReaderTypeId : null;
+    let cancelled = false;
+    setHydrated(false);
 
-    setReaderTypeIdState(resolved);
+    (async () => {
+      try {
+        const res = await fetch('/api/user/reader-type');
+        if (cancelled) return;
 
-    if (resolved) {
-      if (fetchedForType.current !== resolved) {
-        fetchedForType.current = resolved;
-        refreshBooks(resolved);
+        let resolved: ReaderTypeId | null = null;
+        if (res.ok) {
+          const data = (await res.json()) as { readerTypeId?: string | null };
+          resolved = isValidReaderTypeId(data.readerTypeId) ? data.readerTypeId : null;
+        }
+
+        if (!resolved && isValidReaderTypeId(sessionReaderTypeRef.current)) {
+          resolved = sessionReaderTypeRef.current;
+        }
+
+        setReaderTypeIdState(resolved);
+
+        if (resolved && resolved !== sessionReaderTypeRef.current) {
+          await update({ readerTypeId: resolved });
+        }
+
+        if (resolved) {
+          if (fetchedForType.current !== resolved) {
+            fetchedForType.current = resolved;
+            refreshBooks(resolved);
+          }
+        } else {
+          fetchedForType.current = null;
+          setBooks([]);
+          setBooksSource(null);
+        }
+      } catch {
+        if (cancelled) return;
+        const resolved = isValidReaderTypeId(sessionReaderTypeRef.current)
+          ? sessionReaderTypeRef.current
+          : null;
+        setReaderTypeIdState(resolved);
+        if (resolved) {
+          if (fetchedForType.current !== resolved) {
+            fetchedForType.current = resolved;
+            refreshBooks(resolved);
+          }
+        } else {
+          fetchedForType.current = null;
+          setBooks([]);
+          setBooksSource(null);
+        }
+      } finally {
+        if (!cancelled) setHydrated(true);
       }
-    } else {
-      fetchedForType.current = null;
-      setBooks([]);
-      setBooksSource(null);
-    }
+    })();
 
-    setHydrated(true);
-  }, [status, userId, sessionReaderTypeId, refreshBooks]);
+    return () => {
+      cancelled = true;
+    };
+  }, [status, userId, refreshBooks, update]);
 
   useEffect(() => {
     if (status !== 'loading' && !userId && quizOpen) {

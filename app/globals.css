@@ -263,6 +263,10 @@ body {
 }
 .menu-btn { display: none; }
 
+.sidebar-backdrop {
+  display: none;
+}
+
 /* =====================================================
    HERO SECTION
    ===================================================== */
@@ -1292,9 +1296,29 @@ body {
   .main-content { margin-left: 0; padding: 0 24px 60px; }
   .sidebar {
     transform: translateX(-100%);
+    z-index: 101;
   }
   .sidebar.open { transform: translateX(0); }
-  .menu-btn { display: grid; }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    border: none;
+    padding: 0;
+    background: rgba(30, 45, 32, 0.4);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .menu-btn {
+    display: grid;
+    position: relative;
+    z-index: 102;
+  }
+  .topbar--mock {
+    position: relative;
+    z-index: 102;
+  }
   .hero-section { grid-template-columns: 1fr; gap: 24px; }
   .hero-image { min-height: 260px; }
   .books-img { width: 180px; }

@@ -1,11 +1,31 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { saveUserReaderType } from '@/lib/firebase/users';
+import { saveUserReaderType, getUserProfile } from '@/lib/firebase/users';
 import { getReaderType } from '@/lib/reader-types';
 import type { ReaderTypeId } from '@/lib/types';
 
 function isValidReaderTypeId(id: string): id is ReaderTypeId {
   return getReaderType(id).id === id;
+}
+
+export async function GET() {
+  const session = await auth();
+  const uid = session?.user?.id;
+  if (!uid) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const profile = await getUserProfile(uid);
+    const readerTypeId = profile?.readerTypeId;
+    if (readerTypeId && !isValidReaderTypeId(readerTypeId)) {
+      return NextResponse.json({ readerTypeId: null });
+    }
+    return NextResponse.json({ readerTypeId: readerTypeId ?? null });
+  } catch (err) {
+    console.error('[reader-type GET]', err);
+    return NextResponse.json({ error: 'Failed to load profile' }, { status: 500 });
+  }
 }
 
 export async function PUT(request: Request) {
