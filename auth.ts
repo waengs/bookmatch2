@@ -33,7 +33,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const { getAdminAuth } = await import('@/lib/firebase/admin');
           const { getUserProfile, upsertUserProfile } = await import('@/lib/firebase/users');
           const decoded = await getAdminAuth().verifyIdToken(idToken);
-          const profile = await getUserProfile(decoded.uid);
+
+          let profile = null;
+          try {
+            profile = await getUserProfile(decoded.uid);
+          } catch (err) {
+            console.error('[auth] Could not load user profile:', err);
+          }
+
           const displayName =
             providedName ||
             profile?.name ||
@@ -41,10 +48,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             decoded.email?.split('@')[0] ||
             'Reader';
 
-          await upsertUserProfile(decoded.uid, {
-            email: decoded.email ?? null,
-            name: displayName,
-          });
+          try {
+            await upsertUserProfile(decoded.uid, {
+              email: decoded.email ?? null,
+              name: displayName,
+            });
+          } catch (err) {
+            console.error('[auth] Could not save user profile:', err);
+          }
 
           return {
             id: decoded.uid,
@@ -53,7 +64,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             readerTypeId: profile?.readerTypeId,
           };
         } catch (err) {
-          console.error('[auth] Firebase authorize failed:', err);
+          const message = err instanceof Error ? err.message : String(err);
+          console.error('[auth] Firebase authorize failed:', message);
           return null;
         }
       },
