@@ -26,9 +26,47 @@ export interface SideQuest {
   searchGenres: string[];
 }
 
+export interface MilestoneQuest {
+  id: string;
+  badgeId: string;
+  title: string;
+  emoji: string;
+  task: string;
+  rewardXp: number;
+}
+
+/** Milestone quests — sync from account progress or complete in-app */
+export const MILESTONE_QUESTS: MilestoneQuest[] = [
+  {
+    id: 'story-explorer',
+    badgeId: 'story-explorer',
+    title: 'Story Explorer',
+    emoji: '✨',
+    task: 'Complete the reader quiz to discover your reader type',
+    rewardXp: 50,
+  },
+  {
+    id: 'first-review',
+    badgeId: 'first-review',
+    title: 'First Review',
+    emoji: '📝',
+    task: 'Write your first book review',
+    rewardXp: 30,
+  },
+  {
+    id: 'collection-starter',
+    badgeId: 'collection-starter',
+    title: 'Collection Curator',
+    emoji: '📚',
+    task: 'Save a book to your collection',
+    rewardXp: 25,
+  },
+];
+
 export const BADGES: Badge[] = [
-  { id: 'first-book', name: 'First Book', emoji: '🏅', description: 'Started your first reading adventure' },
+  { id: 'first-review', name: 'First Review', emoji: '📝', description: 'Wrote your first book review' },
   { id: 'story-explorer', name: 'Story Explorer', emoji: '🏅', description: 'Discovered your reader type' },
+  { id: 'collection-starter', name: 'Collection Curator', emoji: '📚', description: 'Saved your first book to a collection' },
   { id: 'seven-day', name: '7 Day Reader', emoji: '🏅', description: 'Read 7 days in a row' },
   { id: 'fantasy-quest', name: 'Fantasy Finder', emoji: '🐉', description: 'Searched for fantasy books' },
   { id: 'mystery-quest', name: 'Mystery Hunter', emoji: '🔍', description: 'Searched for mystery books' },
@@ -104,6 +142,7 @@ export type XpSource =
   | 'reader-quiz'
   | 'start-book'
   | 'book-review'
+  | 'collection'
   | 'daily-goal'
   | 'reading-quest'
   | 'weekly-challenge';
@@ -116,6 +155,21 @@ export interface XpLogEntry {
   earnedAt: string;
 }
 
+export interface DailyReadingEntry {
+  id: string;
+  date: string;
+  bookTitle: string;
+  pages: number;
+  summary: string;
+  loggedAt: string;
+}
+
+export interface DailyReadingLogInput {
+  bookTitle: string;
+  pages: number;
+  summary: string;
+}
+
 export interface JourneyState {
   xp: number;
   xpLog: XpLogEntry[];
@@ -124,6 +178,7 @@ export interface JourneyState {
   lastReadDate: string | null;
   dailyPages: number;
   dailyGoal: number;
+  dailyLogs: DailyReadingEntry[];
   earnedBadges: string[];
   questsCompleted: number;
 }
@@ -134,8 +189,9 @@ export const DEFAULT_JOURNEY: JourneyState = {
   booksRead: 0,
   streak: 0,
   lastReadDate: null,
-  dailyPages: 6,
+  dailyPages: 0,
   dailyGoal: 10,
+  dailyLogs: [],
   earnedBadges: [],
   questsCompleted: 0,
 };
@@ -203,6 +259,56 @@ export function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+export function yesterdayKey(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+export function hasLoggedReadingToday(state: JourneyState, date = todayKey()): boolean {
+  return state.lastReadDate === date;
+}
+
+export function getTodayReadingLog(state: JourneyState, date = todayKey()): DailyReadingEntry | null {
+  return (state.dailyLogs ?? []).find((entry) => entry.date === date) ?? null;
+}
+
+export function recordDailyReading(state: JourneyState, log: DailyReadingLogInput): JourneyState {
+  const today = todayKey();
+  if (hasLoggedReadingToday(state, today)) return state;
+
+  const pages = Math.max(1, Math.min(9999, Math.round(log.pages)));
+  const entry: DailyReadingEntry = {
+    id: `daily-${today}-${Date.now()}`,
+    date: today,
+    bookTitle: log.bookTitle.trim(),
+    pages,
+    summary: log.summary.trim(),
+    loggedAt: new Date().toISOString(),
+  };
+
+  let next = addDailyPages(
+    {
+      ...state,
+      dailyLogs: [entry, ...(state.dailyLogs ?? [])].slice(0, 30),
+    },
+    pages
+  );
+
+  const continued = state.lastReadDate === yesterdayKey();
+  next = {
+    ...next,
+    streak: continued ? state.streak + 1 : 1,
+    lastReadDate: today,
+  };
+
+  if (next.streak >= 7) {
+    next = awardBadge(next, 'seven-day');
+  }
+
+  return next;
+}
+
 export function addDailyPages(state: JourneyState, pages: number): JourneyState {
   const next = { ...state, dailyPages: Math.min(state.dailyGoal, state.dailyPages + pages) };
   if (next.dailyPages >= next.dailyGoal && state.dailyPages < state.dailyGoal) {
@@ -223,14 +329,61 @@ export function recordReaderTypeDiscovered(state: JourneyState): JourneyState {
   return awardXp(next, 50, 'reader-quiz', 'Completed reader quiz', { once: true });
 }
 
-export function recordBookStarted(state: JourneyState): JourneyState {
-  let next = awardBadge(state, 'first-book');
-  return awardXp(next, 30, 'start-book', 'Started reading a book');
+export function recordBookReviewed(state: JourneyState): JourneyState {
+  let next = state;
+  const isFirst = !next.earnedBadges.includes('first-review');
+  if (isFirst) {
+    next = awardBadge(next, 'first-review');
+    next = awardXp(next, 30, 'book-review', 'First review written');
+  } else {
+    next = awardXp(next, 15, 'book-review', 'Reviewed a book');
+  }
+  return { ...next, booksRead: next.booksRead + 1 };
 }
 
-export function recordBookReviewed(state: JourneyState): JourneyState {
-  const withXp = awardXp(state, 15, 'book-review', 'Reviewed a quest book');
-  return { ...withXp, booksRead: withXp.booksRead + 1 };
+export function recordBookSavedToCollection(state: JourneyState): JourneyState {
+  if (state.earnedBadges.includes('collection-starter')) return state;
+  let next = awardBadge(state, 'collection-starter');
+  return awardXp(next, 25, 'collection', 'Saved first book to collection', { once: true });
+}
+
+export interface JourneyProgress {
+  hasReaderType: boolean;
+  collectionCount: number;
+  reviewCount: number;
+}
+
+/** Retroactively unlock badges from saved account progress (quiz, collection, reviews). */
+export function syncJourneyProgress(state: JourneyState, progress: JourneyProgress): JourneyState {
+  let next = migrateFirstBookBadge(state);
+
+  if (progress.hasReaderType) {
+    next = recordReaderTypeDiscovered(next);
+  }
+  if (progress.collectionCount > 0) {
+    next = recordBookSavedToCollection(next);
+  }
+  if (progress.reviewCount > 0) {
+    if (!next.earnedBadges.includes('first-review')) {
+      next = awardBadge(next, 'first-review');
+      if (!hasXpSource(next, 'book-review') && !hasXpSource(next, 'start-book')) {
+        next = awardXp(next, 30, 'book-review', 'First review written');
+      }
+    }
+    if (progress.reviewCount > next.booksRead) {
+      next = { ...next, booksRead: progress.reviewCount };
+    }
+  }
+  return next;
+}
+
+export function migrateFirstBookBadge(state: JourneyState): JourneyState {
+  if (!state.earnedBadges.includes('first-book')) return state;
+  const withoutLegacy = state.earnedBadges.filter((id) => id !== 'first-book');
+  const earnedBadges = withoutLegacy.includes('first-review')
+    ? withoutLegacy
+    : [...withoutLegacy, 'first-review'];
+  return { ...state, earnedBadges };
 }
 
 export function recordReadingQuestCompleted(state: JourneyState): JourneyState {

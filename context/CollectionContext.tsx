@@ -33,7 +33,7 @@ const CollectionContext = createContext<CollectionContextValue | null>(null);
 export function CollectionProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { onBookReviewed } = useJourney();
+  const { onBookReviewed, onBookSavedToCollection } = useJourney();
   const [savedBooks, setSavedBooks] = useState<SavedBook[]>([]);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -123,6 +123,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
             const without = prev.filter((b) => collectionDocId(b.title, b.author) !== key);
             return [data.book, ...without];
           });
+          onBookSavedToCollection();
         }
       } catch {
         /* could toast error */
@@ -130,7 +131,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
         setSavingId(null);
       }
     },
-    [session?.user, status, savedKeys, router]
+    [session?.user, status, savedKeys, router, onBookSavedToCollection]
   );
 
   const submitReview = useCallback(

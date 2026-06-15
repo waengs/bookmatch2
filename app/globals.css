@@ -4335,6 +4335,19 @@ body::before {
   transition: all var(--transition);
 }
 
+.streak-card--clickable {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition);
+}
+
+.streak-card--clickable:hover {
+  border-color: var(--sage-400);
+  box-shadow: var(--shadow-sm);
+}
+
 .streak-card--collection:hover {
   border-color: var(--sage-400);
   box-shadow: var(--shadow-sm);
@@ -5040,6 +5053,100 @@ body::before {
 
 .review-read-actions .cta-btn {
   min-width: 120px;
+}
+
+/* Daily reading check-in */
+.daily-reading-card {
+  margin-bottom: 24px;
+}
+
+.daily-reading-card--compact {
+  margin-bottom: 20px;
+}
+
+.daily-reading-form {
+  margin-top: 4px;
+}
+
+.daily-reading-input {
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.daily-reading-input--pages {
+  max-width: 140px;
+}
+
+.daily-reading-input:focus {
+  outline: none;
+  border-color: var(--sage-400);
+}
+
+.daily-reading-textarea {
+  min-height: 96px;
+}
+
+.daily-reading-submit {
+  width: 100%;
+}
+
+.daily-reading-error {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b45309;
+}
+
+.daily-reading-done {
+  background: var(--sage-50);
+  border: 1px solid var(--sage-200);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.daily-reading-done-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--sage-800);
+}
+
+.daily-reading-summary {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.daily-reading-summary-row {
+  display: grid;
+  gap: 4px;
+}
+
+.daily-reading-summary-row dt {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+
+.daily-reading-summary-row dd {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.daily-reading-success {
+  margin: 12px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--sage-700);
 }
 
 @media (max-width: 820px) {

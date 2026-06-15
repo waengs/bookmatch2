@@ -7,6 +7,7 @@ const SOURCE_EMOJI: Record<XpSource, string> = {
   'reader-quiz': '✨',
   'start-book': '📖',
   'book-review': '📝',
+  'collection': '📚',
   'daily-goal': '🎯',
   'reading-quest': '🏆',
   'weekly-challenge': '⭐',
@@ -32,7 +33,7 @@ export default function XpHistory({ limit = 8, title = 'Where your XP came from'
       <div className="xp-history">
         <h3 className="xp-history-title">{title}</h3>
         <p className="xp-history-empty">
-          No XP yet — complete the reader quiz, start a book, or finish quests to earn your first points!
+          No XP yet — complete the reader quiz, save a book, or finish quests to earn your first points!
         </p>
       </div>
     );

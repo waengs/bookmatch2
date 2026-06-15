@@ -11,16 +11,20 @@ import {
 import {
   DEFAULT_JOURNEY,
   JOURNEY_STORAGE_KEY,
+  type JourneyProgress,
   type JourneyState,
-  addDailyPages,
-  awardBadge,
   levelFromXp,
-  recordBookStarted,
+  migrateFirstBookBadge,
   recordBookReviewed,
+  recordBookSavedToCollection,
   recordReaderTypeDiscovered,
   recordReadingQuestCompleted,
+  recordDailyReading,
   completeSideQuestsForSearch,
+  syncJourneyProgress,
   todayKey,
+  yesterdayKey,
+  type DailyReadingLogInput,
 } from '@/lib/gamification';
 
 interface JourneyContextValue {
@@ -29,19 +33,23 @@ interface JourneyContextValue {
   onReaderTypeDiscovered: () => void;
   onReadingQuestCompleted: () => void;
   onBookReviewed: () => void;
+  onBookSavedToCollection: () => void;
+  syncProgress: (progress: JourneyProgress) => void;
   completeSideQuestsForSearch: (search: { genres: string[] }) => void;
-  logPages: (pages: number) => void;
-  startBook: () => void;
+  logDailyReading: (log: DailyReadingLogInput) => boolean;
 }
 
 const JourneyContext = createContext<JourneyContextValue | null>(null);
 
 function normalizeJourney(parsed: Partial<JourneyState>): JourneyState {
-  return {
+  const base: JourneyState = {
     ...DEFAULT_JOURNEY,
     ...parsed,
     xpLog: parsed.xpLog ?? [],
+    earnedBadges: parsed.earnedBadges ?? [],
+    dailyLogs: parsed.dailyLogs ?? [],
   };
+  return migrateFirstBookBadge(base);
 }
 
 function loadJourney(): JourneyState {
@@ -55,25 +63,14 @@ function loadJourney(): JourneyState {
     if (parsed.lastReadDate !== today) {
       return {
         ...base,
-        dailyPages: parsed.lastReadDate === getYesterday() ? (parsed.dailyPages ?? 0) : 0,
-        streak:
-          parsed.lastReadDate === getYesterday()
-            ? (parsed.streak ?? 0)
-            : parsed.lastReadDate === today
-              ? (parsed.streak ?? 0)
-              : 0,
+        dailyPages: 0,
+        streak: parsed.lastReadDate === yesterdayKey() ? (parsed.streak ?? 0) : 0,
       };
     }
     return base;
   } catch {
     return { ...DEFAULT_JOURNEY };
   }
-}
-
-function getYesterday(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10);
 }
 
 function saveJourney(state: JourneyState) {
@@ -109,6 +106,30 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
     persist((prev) => recordBookReviewed(prev));
   }, [persist]);
 
+  const onBookSavedToCollection = useCallback(() => {
+    persist((prev) => recordBookSavedToCollection(prev));
+  }, [persist]);
+
+  const syncProgress = useCallback(
+    (progress: JourneyProgress) => {
+      persist((prev) => syncJourneyProgress(prev, progress));
+    },
+    [persist]
+  );
+
+  const logDailyReading = useCallback(
+    (log: DailyReadingLogInput): boolean => {
+      let accepted = false;
+      persist((prev) => {
+        const next = recordDailyReading(prev, log);
+        accepted = next !== prev;
+        return next;
+      });
+      return accepted;
+    },
+    [persist]
+  );
+
   const completeSideQuestsForSearchHandler = useCallback(
     (search: { genres: string[] }) => {
       if (search.genres.length === 0) return;
@@ -116,30 +137,6 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
     },
     [persist]
   );
-
-  const logPages = useCallback(
-    (pages: number) => {
-      persist((prev) => {
-        let next = addDailyPages(prev, pages);
-        const today = todayKey();
-        if (prev.lastReadDate !== today) {
-          const continued = prev.lastReadDate === getYesterday();
-          next = {
-            ...next,
-            streak: continued ? next.streak + 1 : 1,
-            lastReadDate: today,
-          };
-          if (next.streak >= 7) next = awardBadge(next, 'seven-day');
-        }
-        return next;
-      });
-    },
-    [persist]
-  );
-
-  const startBook = useCallback(() => {
-    persist((prev) => recordBookStarted(prev));
-  }, [persist]);
 
   if (!ready) {
     return (
@@ -150,9 +147,10 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
           onReaderTypeDiscovered: () => {},
           onReadingQuestCompleted: () => {},
           onBookReviewed: () => {},
+          onBookSavedToCollection: () => {},
+          syncProgress: () => {},
           completeSideQuestsForSearch: () => {},
-          logPages: () => {},
-          startBook: () => {},
+          logDailyReading: () => false,
         }}
       >
         {children}
@@ -168,9 +166,10 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
         onReaderTypeDiscovered,
         onReadingQuestCompleted,
         onBookReviewed,
+        onBookSavedToCollection,
+        syncProgress,
         completeSideQuestsForSearch: completeSideQuestsForSearchHandler,
-        logPages,
-        startBook,
+        logDailyReading,
       }}
     >
       {children}

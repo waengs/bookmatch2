@@ -13,6 +13,7 @@ import MyCollection from '@/components/MyCollection';
 import XpProgress from '@/components/XpProgress';
 import XpHistory from '@/components/XpHistory';
 import EditProfileModal from '@/components/EditProfileModal';
+import DailyReadingLog from '@/components/DailyReadingLog';
 
 export default function MePanel() {
   const { data: session } = useSession();
@@ -118,6 +119,8 @@ export default function MePanel() {
         <XpProgress compact />
         <XpHistory limit={5} />
       </div>
+
+      <DailyReadingLog compact />
 
       <MyCollection />
 

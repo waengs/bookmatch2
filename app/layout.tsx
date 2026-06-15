@@ -5,6 +5,7 @@ import { JourneyProvider } from '@/context/JourneyContext';
 import { BookMatchProvider } from '@/context/BookMatchContext';
 import { CollectionProvider } from '@/context/CollectionContext';
 import { ReadingQuestProvider } from '@/context/ReadingQuestContext';
+import JourneySync from '@/components/JourneySync';
 import './globals.css';
 
 const playfair = Playfair_Display({
@@ -39,7 +40,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <JourneyProvider>
             <BookMatchProvider>
               <CollectionProvider>
-                <ReadingQuestProvider>{children}</ReadingQuestProvider>
+                <ReadingQuestProvider>
+                  <JourneySync />
+                  {children}
+                </ReadingQuestProvider>
               </CollectionProvider>
             </BookMatchProvider>
           </JourneyProvider>

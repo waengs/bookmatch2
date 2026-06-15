@@ -17,6 +17,7 @@ import QuestsPanel from '@/components/QuestsPanel';
 import RewardsPanel from '@/components/RewardsPanel';
 import MePanel from '@/components/MePanel';
 import ReaderIdentityCard from '@/components/ReaderIdentityCard';
+import DailyReadingLog from '@/components/DailyReadingLog';
 
 export default function HomePage() {
   const { data: session } = useSession();
@@ -95,11 +96,18 @@ export default function HomePage() {
     }, 80);
   };
 
+  const scrollToDailyLog = () => {
+    handleNav('home');
+    window.setTimeout(() => {
+      document.getElementById('section-daily-reading')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  };
+
   const showBooksLoading = booksLoading && books.length === 0;
 
   return (
     <>
-      <Sidebar open={sidebarOpen} activeNav={activeNav} onNavClick={handleNav} />
+      <Sidebar open={sidebarOpen} activeNav={activeNav} onNavClick={handleNav} onStreakClick={scrollToDailyLog} />
 
       <main className="main-content main-content--mock">
         <header className="topbar topbar--mock">
@@ -129,6 +137,7 @@ export default function HomePage() {
               <ReaderIdentityCard variant="header" onViewProfile={() => handleNav('me')} />
             )}
             <BookMatchIntro />
+            <DailyReadingLog />
             <div className="home-dashboard-row">
               <ReaderQuest />
               <FeaturedAdventure
@@ -184,7 +193,7 @@ export default function HomePage() {
           </>
         )}
 
-        {activeNav === 'quests' && <QuestsPanel onStartQuest={startQuestSearch} />}
+        {activeNav === 'quests' && <QuestsPanel onStartQuest={startQuestSearch} onBrowseBooks={browseBooks} />}
         {activeNav === 'rewards' && <RewardsPanel />}
         {activeNav === 'me' && <MePanel />}
       </main>

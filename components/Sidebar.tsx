@@ -18,9 +18,10 @@ interface SidebarProps {
   open: boolean;
   activeNav: string;
   onNavClick: (id: string, sectionId?: string) => void;
+  onStreakClick?: () => void;
 }
 
-export default function Sidebar({ open, activeNav, onNavClick }: SidebarProps) {
+export default function Sidebar({ open, activeNav, onNavClick, onStreakClick }: SidebarProps) {
   const { journey } = useJourney();
   const { savedBooks, isSignedIn: hasCollection } = useCollection();
 
@@ -69,13 +70,17 @@ export default function Sidebar({ open, activeNav, onNavClick }: SidebarProps) {
           </button>
         )}
 
-        <div className="streak-card">
+        <button
+          type="button"
+          className="streak-card streak-card--clickable"
+          onClick={() => onStreakClick?.()}
+        >
           <span className="streak-card-icon">🔥</span>
           <div>
             <div className="streak-card-label">Reading Streak</div>
             <div className="streak-card-val">{journey.streak} days</div>
           </div>
-        </div>
+        </button>
       </div>
     </aside>
   );
