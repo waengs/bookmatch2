@@ -19,6 +19,7 @@ import {
   recordBookReviewed,
   recordReaderTypeDiscovered,
   recordReadingQuestCompleted,
+  completeSideQuestsForSearch,
   todayKey,
 } from '@/lib/gamification';
 
@@ -28,6 +29,7 @@ interface JourneyContextValue {
   onReaderTypeDiscovered: () => void;
   onReadingQuestCompleted: () => void;
   onBookReviewed: () => void;
+  completeSideQuestsForSearch: (search: { genres: string[] }) => void;
   logPages: (pages: number) => void;
   startBook: () => void;
 }
@@ -107,6 +109,14 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
     persist((prev) => recordBookReviewed(prev));
   }, [persist]);
 
+  const completeSideQuestsForSearchHandler = useCallback(
+    (search: { genres: string[] }) => {
+      if (search.genres.length === 0) return;
+      persist((prev) => completeSideQuestsForSearch(prev, search));
+    },
+    [persist]
+  );
+
   const logPages = useCallback(
     (pages: number) => {
       persist((prev) => {
@@ -140,6 +150,7 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
           onReaderTypeDiscovered: () => {},
           onReadingQuestCompleted: () => {},
           onBookReviewed: () => {},
+          completeSideQuestsForSearch: () => {},
           logPages: () => {},
           startBook: () => {},
         }}
@@ -157,6 +168,7 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
         onReaderTypeDiscovered,
         onReadingQuestCompleted,
         onBookReviewed,
+        completeSideQuestsForSearch: completeSideQuestsForSearchHandler,
         logPages,
         startBook,
       }}

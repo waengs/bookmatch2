@@ -2091,6 +2091,30 @@ body::before {
   text-align: center;
 }
 
+.side-quests-heading {
+  font-family: var(--font-playfair), 'Playfair Display', serif;
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 32px;
+  margin-bottom: 6px;
+}
+
+.side-quests-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.side-quests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.side-quests-list .challenge-card {
+  margin-top: 0;
+}
+
 .mini-stats {
   display: flex;
   gap: 16px;

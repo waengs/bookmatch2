@@ -2,18 +2,17 @@
 
 import { useBookMatch } from '@/context/BookMatchContext';
 import { useJourney } from '@/context/JourneyContext';
-import { WEEKLY_CHALLENGE, BADGES } from '@/lib/gamification';
+import { SIDE_QUESTS, BADGES } from '@/lib/gamification';
+import { getSearchGenre } from '@/lib/search-genres';
 import ReaderQuest from '@/components/ReaderQuest';
 
 interface QuestsPanelProps {
-  onFindFantasyBook?: () => void;
+  onStartQuest?: (genres: string[]) => void;
 }
 
-export default function QuestsPanel({ onFindFantasyBook }: QuestsPanelProps) {
-  const { readerType } = useBookMatch();
+export default function QuestsPanel({ onStartQuest }: QuestsPanelProps) {
+  const { readerType, openQuiz } = useBookMatch();
   const { journey } = useJourney();
-  const challenge = WEEKLY_CHALLENGE;
-  const hasFantasyBadge = journey.earnedBadges.includes(challenge.rewardBadge);
 
   return (
     <div className="panel quests-panel">
@@ -22,26 +21,47 @@ export default function QuestsPanel({ onFindFantasyBook }: QuestsPanelProps) {
 
       <ReaderQuest />
 
-      <div className="challenge-card">
-        <div className="challenge-badge">Weekly Challenge</div>
-        <h2 className="challenge-title">{challenge.emoji} {challenge.title}</h2>
-        <p className="challenge-task">{challenge.task}</p>
-        <div className="challenge-rewards">
-          <span>Reward:</span>
-          <span className="challenge-reward-item">🌟 {BADGES.find((b) => b.id === challenge.rewardBadge)?.name ?? 'Badge'}</span>
-          <span className="challenge-reward-item">+{challenge.rewardXp} XP</span>
-        </div>
-        {hasFantasyBadge ? (
-          <div className="challenge-done">Challenge complete! 🎉</div>
-        ) : (
-          <button
-            type="button"
-            className="cta-btn cta-btn--secondary"
-            onClick={() => onFindFantasyBook?.()}
-          >
-            {readerType ? 'Find a fantasy book →' : 'Discover your type first ✨'}
-          </button>
-        )}
+      <h2 className="side-quests-heading">Genre quests</h2>
+      <p className="side-quests-sub">Search in Explore with a genre filter to complete each quest.</p>
+
+      <div className="side-quests-list">
+        {SIDE_QUESTS.map((quest) => {
+          const done = journey.earnedBadges.includes(quest.rewardBadge);
+          const genreLabel = getSearchGenre(quest.searchGenres[0])?.label ?? 'books';
+
+          return (
+            <div key={quest.id} className="challenge-card">
+              <div className="challenge-badge">Side quest</div>
+              <h3 className="challenge-title">{quest.emoji} {quest.title}</h3>
+              <p className="challenge-task">{quest.task}</p>
+              <div className="challenge-rewards">
+                <span>Reward:</span>
+                <span className="challenge-reward-item">
+                  {BADGES.find((b) => b.id === quest.rewardBadge)?.emoji ?? '🏅'}{' '}
+                  {BADGES.find((b) => b.id === quest.rewardBadge)?.name ?? 'Badge'}
+                </span>
+                <span className="challenge-reward-item">+{quest.rewardXp} XP</span>
+              </div>
+              {done ? (
+                <div className="challenge-done">Quest complete! 🎉</div>
+              ) : (
+                <button
+                  type="button"
+                  className="cta-btn cta-btn--secondary"
+                  onClick={() => {
+                    if (!readerType) {
+                      openQuiz();
+                      return;
+                    }
+                    onStartQuest?.(quest.searchGenres);
+                  }}
+                >
+                  {readerType ? `Search ${genreLabel.toLowerCase()} books →` : 'Discover your type first ✨'}
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="mini-stats">

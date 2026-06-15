@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { Book } from '@/lib/types';
 import { SEARCH_GENRES } from '@/lib/search-genres';
+import { useJourney } from '@/context/JourneyContext';
 import BookCard from '@/components/BookCard';
 
 interface BookSearchProps {
@@ -20,6 +21,7 @@ export default function BookSearch({
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { completeSideQuestsForSearch } = useJourney();
 
   const runSearch = useCallback(async (q: string, genres: string[]) => {
     const trimmed = q.trim();
@@ -45,13 +47,16 @@ export default function BookSearch({
 
       const data = await res.json();
       setResults(data.books ?? []);
+      if (genres.length > 0) {
+        completeSideQuestsForSearch({ genres });
+      }
     } catch {
       setError('Could not search right now. Please try again.');
       setResults([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [completeSideQuestsForSearch]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

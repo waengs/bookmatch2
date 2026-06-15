@@ -82,12 +82,12 @@ export default function HomePage() {
     handleNav('explore');
   };
 
-  const findFantasyBooks = () => {
+  const startQuestSearch = (genres: string[]) => {
     if (!readerTypeId) {
       openQuiz();
       return;
     }
-    setExploreSearch({ genres: ['fantasy'] });
+    setExploreSearch({ genres });
     setActiveNav('explore');
     if (window.innerWidth <= 820) setSidebarOpen(false);
     window.setTimeout(() => {
@@ -184,7 +184,7 @@ export default function HomePage() {
           </>
         )}
 
-        {activeNav === 'quests' && <QuestsPanel onFindFantasyBook={findFantasyBooks} />}
+        {activeNav === 'quests' && <QuestsPanel onStartQuest={startQuestSearch} />}
         {activeNav === 'rewards' && <RewardsPanel />}
         {activeNav === 'me' && <MePanel />}
       </main>
