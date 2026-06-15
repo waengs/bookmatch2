@@ -26,7 +26,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         const idToken = credentials?.idToken as string | undefined;
-        const providedName = (credentials?.name as string | undefined)?.trim();
+        const rawName = (credentials?.name as string | undefined)?.trim();
+        // signIn() sends `undefined` as the string "undefined" for optional credentials
+        const providedName =
+          rawName && rawName !== 'undefined' ? rawName : undefined;
         if (!idToken) return null;
 
         try {

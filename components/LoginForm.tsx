@@ -69,7 +69,7 @@ export default function LoginForm() {
 
       const result = await signIn('firebase', {
         idToken,
-        name: mode === 'signup' ? trimmedName : undefined,
+        ...(mode === 'signup' ? { name: trimmedName } : {}),
         redirect: false,
         callbackUrl,
       });
