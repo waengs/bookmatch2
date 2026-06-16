@@ -5,16 +5,19 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   DEFAULT_JOURNEY,
   JOURNEY_STORAGE_KEY,
   type JourneyProgress,
   type JourneyState,
   levelFromXp,
-  migrateFirstBookBadge,
+  mergeJourneyStates,
+  normalizeStoredJourney,
   recordBookReviewed,
   recordBookSavedToCollection,
   recordReaderTypeDiscovered,
@@ -22,8 +25,6 @@ import {
   recordDailyReading,
   completeSideQuestsForSearch,
   syncJourneyProgress,
-  todayKey,
-  yesterdayKey,
   type DailyReadingLogInput,
 } from '@/lib/gamification';
 
@@ -41,57 +42,109 @@ interface JourneyContextValue {
 
 const JourneyContext = createContext<JourneyContextValue | null>(null);
 
-function normalizeJourney(parsed: Partial<JourneyState>): JourneyState {
-  const base: JourneyState = {
-    ...DEFAULT_JOURNEY,
-    ...parsed,
-    xpLog: parsed.xpLog ?? [],
-    earnedBadges: parsed.earnedBadges ?? [],
-    dailyLogs: parsed.dailyLogs ?? [],
-  };
-  return migrateFirstBookBadge(base);
-}
-
-function loadJourney(): JourneyState {
+function loadLocalJourney(): JourneyState {
   if (typeof window === 'undefined') return { ...DEFAULT_JOURNEY };
   try {
     const raw = localStorage.getItem(JOURNEY_STORAGE_KEY);
     if (!raw) return { ...DEFAULT_JOURNEY };
     const parsed = JSON.parse(raw) as Partial<JourneyState>;
-    const today = todayKey();
-    const base = normalizeJourney(parsed);
-    if (parsed.lastReadDate !== today) {
-      return {
-        ...base,
-        dailyPages: 0,
-        streak: parsed.lastReadDate === yesterdayKey() ? (parsed.streak ?? 0) : 0,
-      };
-    }
-    return base;
+    return normalizeStoredJourney(parsed);
   } catch {
     return { ...DEFAULT_JOURNEY };
   }
 }
 
-function saveJourney(state: JourneyState) {
+function saveLocalJourney(state: JourneyState) {
   localStorage.setItem(JOURNEY_STORAGE_KEY, JSON.stringify(state));
 }
 
+async function saveRemoteJourney(journey: JourneyState) {
+  await fetch('/api/user/journey', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ journey }),
+  });
+}
+
 export function JourneyProvider({ children }: { children: ReactNode }) {
+  const { data: session, status } = useSession();
+  const userId = session?.user?.id;
   const [journey, setJourney] = useState<JourneyState>(DEFAULT_JOURNEY);
   const [ready, setReady] = useState(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncedForUserRef = useRef<string | null>(null);
 
   useEffect(() => {
-    setJourney(loadJourney());
+    setJourney(loadLocalJourney());
     setReady(true);
   }, []);
 
-  const persist = useCallback((updater: (prev: JourneyState) => JourneyState) => {
-    setJourney((prev) => {
-      const next = updater(prev);
-      saveJourney(next);
-      return next;
-    });
+  useEffect(() => {
+    if (!ready || status === 'loading') return;
+
+    if (!userId) {
+      syncedForUserRef.current = null;
+      return;
+    }
+
+    if (syncedForUserRef.current === userId) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/user/journey');
+        if (cancelled) return;
+
+        if (res.ok) {
+          const data = (await res.json()) as { journey?: JourneyState | null };
+          setJourney((current) => {
+            const local = normalizeStoredJourney(current);
+            const remote = data.journey ? normalizeStoredJourney(data.journey) : null;
+            const merged = remote ? mergeJourneyStates(local, remote) : local;
+            saveLocalJourney(merged);
+            return merged;
+          });
+        }
+      } catch {
+        /* keep local journey */
+      } finally {
+        if (!cancelled) syncedForUserRef.current = userId;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, status, userId]);
+
+  const persist = useCallback(
+    (updater: (prev: JourneyState) => JourneyState, options?: { immediate?: boolean }) => {
+      setJourney((prev) => {
+        const next = normalizeStoredJourney(updater(prev));
+        saveLocalJourney(next);
+
+        if (userId) {
+          if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+          if (options?.immediate) {
+            saveRemoteJourney(next).catch(() => {});
+          } else {
+            saveTimerRef.current = setTimeout(() => {
+              saveRemoteJourney(next).catch(() => {});
+            }, 400);
+          }
+        }
+
+        return next;
+      });
+    },
+    [userId]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
   }, []);
 
   const onReaderTypeDiscovered = useCallback(() => {
@@ -120,11 +173,14 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
   const logDailyReading = useCallback(
     (log: DailyReadingLogInput): boolean => {
       let accepted = false;
-      persist((prev) => {
-        const next = recordDailyReading(prev, log);
-        accepted = next !== prev;
-        return next;
-      });
+      persist(
+        (prev) => {
+          const next = recordDailyReading(prev, log);
+          accepted = next !== prev;
+          return next;
+        },
+        { immediate: true }
+      );
       return accepted;
     },
     [persist]

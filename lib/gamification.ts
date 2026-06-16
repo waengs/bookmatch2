@@ -265,8 +265,100 @@ export function yesterdayKey(): string {
   return d.toISOString().slice(0, 10);
 }
 
+export function mergeDailyLogs(
+  a: DailyReadingEntry[],
+  b: DailyReadingEntry[]
+): DailyReadingEntry[] {
+  const byDate = new Map<string, DailyReadingEntry>();
+  for (const entry of [...a, ...b]) {
+    const existing = byDate.get(entry.date);
+    if (!existing || entry.loggedAt > existing.loggedAt) {
+      byDate.set(entry.date, entry);
+    }
+  }
+  return [...byDate.values()].sort((x, y) => y.date.localeCompare(x.date)).slice(0, 30);
+}
+
+export function deriveStreakFromLogs(dailyLogs: DailyReadingEntry[]): {
+  streak: number;
+  lastReadDate: string | null;
+} {
+  if (dailyLogs.length === 0) return { streak: 0, lastReadDate: null };
+
+  const dates = new Set(dailyLogs.map((entry) => entry.date));
+  const sortedDates = [...dates].sort((a, b) => b.localeCompare(a));
+  const lastReadDate = sortedDates[0] ?? null;
+  if (!lastReadDate) return { streak: 0, lastReadDate: null };
+
+  const today = todayKey();
+  const yesterday = yesterdayKey();
+  if (lastReadDate !== today && lastReadDate !== yesterday) {
+    return { streak: 0, lastReadDate };
+  }
+
+  let streak = 0;
+  const cursor = new Date(`${lastReadDate}T12:00:00`);
+  while (dates.has(cursor.toISOString().slice(0, 10))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return { streak, lastReadDate };
+}
+
+export function normalizeStoredJourney(parsed: Partial<JourneyState>): JourneyState {
+  const dailyLogs = parsed.dailyLogs ?? [];
+  const { streak, lastReadDate } = deriveStreakFromLogs(dailyLogs);
+  const today = todayKey();
+  const todayLog = dailyLogs.find((entry) => entry.date === today);
+
+  const base: JourneyState = {
+    ...DEFAULT_JOURNEY,
+    ...parsed,
+    xpLog: parsed.xpLog ?? [],
+    earnedBadges: parsed.earnedBadges ?? [],
+    dailyLogs,
+    streak,
+    lastReadDate,
+    dailyPages: todayLog?.pages ?? 0,
+    dailyGoal: parsed.dailyGoal ?? DEFAULT_JOURNEY.dailyGoal,
+  };
+  return migrateFirstBookBadge(base);
+}
+
+export function mergeJourneyStates(local: JourneyState, remote: JourneyState): JourneyState {
+  const dailyLogs = mergeDailyLogs(local.dailyLogs ?? [], remote.dailyLogs ?? []);
+  const { streak, lastReadDate } = deriveStreakFromLogs(dailyLogs);
+  const today = todayKey();
+  const todayLog = dailyLogs.find((entry) => entry.date === today);
+
+  const earnedBadges = [...new Set([...local.earnedBadges, ...remote.earnedBadges])];
+  const xpById = new Map<string, XpLogEntry>();
+  for (const entry of [...local.xpLog, ...remote.xpLog]) {
+    xpById.set(entry.id, entry);
+  }
+  const xpLog = [...xpById.values()]
+    .sort((a, b) => b.earnedAt.localeCompare(a.earnedAt))
+    .slice(0, 50);
+  const xpFromLog = xpLog.reduce((sum, entry) => sum + entry.amount, 0);
+
+  return migrateFirstBookBadge({
+    ...DEFAULT_JOURNEY,
+    xp: Math.max(local.xp, remote.xp, xpFromLog),
+    xpLog,
+    booksRead: Math.max(local.booksRead, remote.booksRead),
+    streak,
+    lastReadDate,
+    dailyPages: todayLog?.pages ?? 0,
+    dailyGoal: local.dailyGoal || remote.dailyGoal || DEFAULT_JOURNEY.dailyGoal,
+    dailyLogs,
+    earnedBadges,
+    questsCompleted: Math.max(local.questsCompleted, remote.questsCompleted),
+  });
+}
+
 export function hasLoggedReadingToday(state: JourneyState, date = todayKey()): boolean {
-  return state.lastReadDate === date;
+  return (state.dailyLogs ?? []).some((entry) => entry.date === date);
 }
 
 export function getTodayReadingLog(state: JourneyState, date = todayKey()): DailyReadingEntry | null {
@@ -287,20 +379,11 @@ export function recordDailyReading(state: JourneyState, log: DailyReadingLogInpu
     loggedAt: new Date().toISOString(),
   };
 
-  let next = addDailyPages(
-    {
-      ...state,
-      dailyLogs: [entry, ...(state.dailyLogs ?? [])].slice(0, 30),
-    },
-    pages
-  );
+  const dailyLogs = mergeDailyLogs(state.dailyLogs ?? [], [entry]);
+  let next = addDailyPages({ ...state, dailyLogs }, pages);
 
-  const continued = state.lastReadDate === yesterdayKey();
-  next = {
-    ...next,
-    streak: continued ? state.streak + 1 : 1,
-    lastReadDate: today,
-  };
+  const { streak, lastReadDate } = deriveStreakFromLogs(dailyLogs);
+  next = { ...next, streak, lastReadDate, dailyPages: pages };
 
   if (next.streak >= 7) {
     next = awardBadge(next, 'seven-day');
