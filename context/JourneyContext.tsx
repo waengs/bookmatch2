@@ -31,6 +31,7 @@ import {
 interface JourneyContextValue {
   journey: JourneyState;
   level: number;
+  accountJourneyLoaded: boolean;
   onReaderTypeDiscovered: () => void;
   onReadingQuestCompleted: () => void;
   onBookReviewed: () => void;
@@ -71,7 +72,9 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
   const userId = session?.user?.id;
   const [journey, setJourney] = useState<JourneyState>(DEFAULT_JOURNEY);
   const [ready, setReady] = useState(false);
+  const [accountJourneyLoaded, setAccountJourneyLoaded] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveVersionRef = useRef(0);
   const syncedForUserRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -84,10 +87,16 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
 
     if (!userId) {
       syncedForUserRef.current = null;
+      setAccountJourneyLoaded(false);
       return;
     }
 
-    if (syncedForUserRef.current === userId) return;
+    if (syncedForUserRef.current === userId) {
+      setAccountJourneyLoaded(true);
+      return;
+    }
+
+    setAccountJourneyLoaded(false);
 
     let cancelled = false;
 
@@ -98,18 +107,33 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
 
         if (res.ok) {
           const data = (await res.json()) as { journey?: JourneyState | null };
+          if (saveTimerRef.current) {
+            clearTimeout(saveTimerRef.current);
+            saveTimerRef.current = null;
+          }
+
+          let mergedForSave: JourneyState | null = null;
           setJourney((current) => {
             const local = normalizeStoredJourney(current);
             const remote = data.journey ? normalizeStoredJourney(data.journey) : null;
             const merged = remote ? mergeJourneyStates(local, remote) : local;
+            mergedForSave = merged;
             saveLocalJourney(merged);
             return merged;
           });
+
+          if (mergedForSave) {
+            saveVersionRef.current += 1;
+            await saveRemoteJourney(mergedForSave);
+          }
         }
       } catch {
         /* keep local journey */
       } finally {
-        if (!cancelled) syncedForUserRef.current = userId;
+        if (!cancelled) {
+          syncedForUserRef.current = userId;
+          setAccountJourneyLoaded(true);
+        }
       }
     })();
 
@@ -125,13 +149,20 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
         saveLocalJourney(next);
 
         if (userId) {
+          saveVersionRef.current += 1;
+          const versionAtSchedule = saveVersionRef.current;
+
           if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-          if (options?.immediate) {
+
+          const push = () => {
+            if (versionAtSchedule !== saveVersionRef.current) return;
             saveRemoteJourney(next).catch(() => {});
+          };
+
+          if (options?.immediate) {
+            push();
           } else {
-            saveTimerRef.current = setTimeout(() => {
-              saveRemoteJourney(next).catch(() => {});
-            }, 400);
+            saveTimerRef.current = setTimeout(push, 400);
           }
         }
 
@@ -200,6 +231,7 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
         value={{
           journey: DEFAULT_JOURNEY,
           level: 1,
+          accountJourneyLoaded: false,
           onReaderTypeDiscovered: () => {},
           onReadingQuestCompleted: () => {},
           onBookReviewed: () => {},
@@ -219,6 +251,7 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
       value={{
         journey,
         level: levelFromXp(journey.xp),
+        accountJourneyLoaded: userId ? accountJourneyLoaded : true,
         onReaderTypeDiscovered,
         onReadingQuestCompleted,
         onBookReviewed,
